@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Custom Dict
 // @namespace    https://github.com/Disapole-Xiao/
-// @version      2.7
+// @version      2.8
 // @author       Disapole
 // @description  选中任何词语添加到你的词库中，支持高亮显示页面上所有单词，悬停高亮单词显示释义，词典修改和删除
 // @match        *://*/*
@@ -307,17 +307,70 @@
     });
   }
 
-  // 将“高亮页面”和“修改词典”添加到 Tampermonkey 菜单
+  function exportDict() {
+    const jsonStr = JSON.stringify(wordList, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+
+    // 创建隐藏的 <a> 元素，添加到文档中
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = URL.createObjectURL(blob); // 为 Blob 创建 URL
+    link.download = 'custom_dict.json'; // 设置下载文件名
+    document.body.appendChild(link);
+
+    link.click(); // 触发点击事件
+
+    // 清理
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
+  function importDict() {
+    // 创建隐藏 input
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".json"; // 限制文件类型
+    fileInput.style.display = "none";
+
+    // 绑定 reader 回调
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonObject = JSON.parse(e.target.result);
+        console.log("文件内容：", jsonObject);
+        Object.assign(wordList, jsonObject); // 导入
+        GM_setValue('wordList', wordList);
+        alert("导入成功！");
+      } catch (err) {
+        alert("文件内容不是有效的 JSON！");
+      }
+    };
+
+    // 对 input 添加文件选择监听器
+    fileInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) {
+        alert("未选择任何文件！");
+        return;
+      }
+
+      // 检查文件类型
+      if (file.type !== "application/json") {
+        alert("请上传 JSON 文件！");
+        return;
+      }
+
+      reader.readAsText(file); // 读取文件内容
+    });
+
+    // 点击 input
+    fileInput.click();
+  }
+
+  /* 菜单 */
   GM_registerMenuCommand('高亮页面', highlightWords);
-  GM_registerMenuCommand('修改词典', modifyDictionary);
+  GM_registerMenuCommand('编辑词典', modifyDictionary);
+  GM_registerMenuCommand('导出词典', exportDict);
+  GM_registerMenuCommand('导入词典', importDict);
+
 })();
-
-/* TODO:
-[] 高亮bug
-[] 匹配时避开列表
-[] 回车自动确定
-[] 批量删除没有确认
-[] 批量删除按钮应该 sticky
-
-
-*/
